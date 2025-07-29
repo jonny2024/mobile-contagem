@@ -1,45 +1,56 @@
 body {
   margin: 0;
   font-family: sans-serif;
-  color: white;
   background: url('bg.jpg.jfif') no-repeat center center fixed;
   background-size: cover;
+  color: white;
 }
 
 .container {
-  max-width: 95%;
-  margin: auto;
-  padding: 1rem;
-  background-color: rgba(0, 0, 0, 0.7);
-  border-radius: 10px;
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 16px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 16px;
 }
 
 button {
-  margin: 0.5rem;
-  padding: 0.5rem 1rem;
+  margin: 4px;
+  padding: 8px 12px;
   background: #333;
   color: white;
   border: none;
+  border-radius: 4px;
   cursor: pointer;
-  border-radius: 8px;
-  transition: background 0.3s ease;
-}
-button:hover {
-  background: #555;
+  transition: all 0.3s ease;
 }
 
-.header-row,
-.row {
+button:hover {
+  background: #555;
+  transform: scale(1.03);
+}
+
+.header-row, .product-row {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 0.3rem;
+  grid-template-columns: 2fr 2fr 1fr 1fr 1fr 1fr 1fr;
+  gap: 4px;
+  margin: 6px 0;
   align-items: center;
-  margin: 0.5rem 0;
+}
+
+.header-row span {
+  font-weight: bold;
 }
 
 input {
   width: 100%;
-  padding: 0.3rem;
-  border-radius: 5px;
-  border: 1px solid #ccc;
+  padding: 6px;
+  box-sizing: border-box;
+  font-size: 16px;
+  border-radius: 4px;
+  border: none;
 }
