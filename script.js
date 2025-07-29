@@ -1,79 +1,102 @@
+import { db, ref, set, onValue, remove } from './firebase.js';
+
 const tabela = document.getElementById("tabela");
 const addRowBtn = document.getElementById("addRow");
-const resetBtn = document.getElementById("resetCounts");
+const resetCountsBtn = document.getElementById("resetCounts");
+const dadosRef = ref(db, "produtos");
 
-// Carrega do localStorage
-function carregarDados() {
-  const data = JSON.parse(localStorage.getItem("contagem")) || [];
-  data.forEach(addRow);
-}
-
-// Salva no localStorage
-function salvarDados() {
-  const rows = Array.from(document.querySelectorAll(".row")).map(row => ({
-    produto: row.querySelector(".produto").value,
-    grupo: row.querySelector(".grupo").value,
-    estoque: row.querySelector(".estoque").value,
-    bar: row.querySelector(".bar").value,
-    avarias: row.querySelector(".avarias").value
-  }));
-  localStorage.setItem("contagem", JSON.stringify(rows));
-}
-
-function addRow(data = {}) {
+function createRow(produto = "", grupo = "", estoque = "", bar = "", avarias = "", id = Date.now()) {
   const row = document.createElement("div");
   row.className = "row";
 
-  row.innerHTML = `
-    <input type="text" class="produto" placeholder="Produto" value="${data.produto || ''}">
-    <input type="text" class="grupo" placeholder="Grupo" value="${data.grupo || ''}">
-    <input type="number" class="estoque" value="${data.estoque || 0}">
-    <input type="number" class="bar" value="${data.bar || 0}">
-    <input type="number" class="avarias" value="${data.avarias || 0}">
-    <input type="number" class="total" disabled value="0">
-    <button class="delete">🗑️</button>
-  `;
+  const produtoInput = createInput(produto, "produto");
+  const grupoInput = createInput(grupo, "grupo");
+  const estoqueInput = createInput(estoque, "estoque", true);
+  const barInput = createInput(bar, "bar", true);
+  const avariasInput = createInput(avarias, "avarias", true);
+  const totalSpan = document.createElement("span");
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = "🗑️";
 
-  const inputs = row.querySelectorAll("input[type='number']");
-  const totalField = row.querySelector(".total");
-
-  function atualizarTotal() {
-    const estoque = parseInt(row.querySelector(".estoque").value) || 0;
-    const bar = parseInt(row.querySelector(".bar").value) || 0;
-    const avarias = parseInt(row.querySelector(".avarias").value) || 0;
-    const total = estoque + bar + avarias;
-    totalField.value = total;
-    salvarDados();
+  function calcularTotal() {
+    const total = 
+      parseInt(estoqueInput.value) || 0 + 
+      parseInt(barInput.value) || 0 + 
+      parseInt(avariasInput.value) || 0;
+    totalSpan.textContent = total;
   }
 
-  inputs.forEach(input => {
-    input.addEventListener("input", atualizarTotal);
-  });
+  [produtoInput, grupoInput, estoqueInput, barInput, avariasInput].forEach(input =>
+    input.addEventListener("input", () => {
+      calcularTotal();
+      salvarDados();
+    })
+  );
 
-  const textInputs = row.querySelectorAll("input[type='text']");
-  textInputs.forEach(input => {
-    input.addEventListener("input", salvarDados);
-  });
+  deleteBtn.onclick = () => {
+    remove(ref(db, `produtos/${id}`));
+  };
 
-  row.querySelector(".delete").addEventListener("click", () => {
-    row.remove();
-    salvarDados();
-  });
+  calcularTotal();
 
-  tabela.appendChild(row);
-  atualizarTotal();
+  row.append(produtoInput, grupoInput, estoqueInput, barInput, avariasInput, totalSpan, deleteBtn);
+  row.dataset.id = id;
+  return row;
 }
 
-addRowBtn.addEventListener("click", () => addRow());
-resetBtn.addEventListener("click", () => {
-  document.querySelectorAll(".estoque, .bar, .avarias").forEach(input => {
-    input.value = 0;
+function createInput(value = "", type = "", isNumber = false) {
+  const input = document.createElement("input");
+  input.value = value;
+  input.type = isNumber ? "number" : "text";
+  input.placeholder = type;
+  return input;
+}
+
+function salvarDados() {
+  const rows = Array.from(document.querySelectorAll(".row"));
+  const data = {};
+  rows.forEach(row => {
+    const id = row.dataset.id;
+    const inputs = row.querySelectorAll("input");
+    data[id] = {
+      produto: inputs[0].value,
+      grupo: inputs[1].value,
+      estoque: inputs[2].value,
+      bar: inputs[3].value,
+      avarias: inputs[4].value
+    };
   });
-  document.querySelectorAll(".row").forEach(row => {
-    const totalField = row.querySelector(".total");
-    totalField.value = 0;
+  set(dadosRef, data);
+}
+
+function carregarDados() {
+  onValue(dadosRef, (snapshot) => {
+    tabela.innerHTML = "";
+    const data = snapshot.val();
+    if (data) {
+      Object.entries(data).forEach(([id, valores]) => {
+        const linha = createRow(valores.produto, valores.grupo, valores.estoque, valores.bar, valores.avarias, id);
+        tabela.appendChild(linha);
+      });
+    }
+  });
+}
+
+addRowBtn.onclick = () => {
+  const novaLinha = createRow();
+  tabela.appendChild(novaLinha);
+  salvarDados();
+};
+
+resetCountsBtn.onclick = () => {
+  const rows = document.querySelectorAll(".row");
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll("input");
+    inputs[2].value = "";
+    inputs[3].value = "";
+    inputs[4].value = "";
   });
   salvarDados();
-});
+};
 
 carregarDados();
