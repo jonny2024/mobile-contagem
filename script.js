@@ -1,6 +1,5 @@
-// script.js
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBMVXlYLkJ7CU-4_k75f8wFzMEzAr4g_2g",
@@ -15,104 +14,99 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const tabelaRef = ref(db, 'produtos');
-const tabelaEl = document.getElementById("tabela");
+
+const tabela = document.getElementById("tabela");
 const addRowBtn = document.getElementById("addRow");
 const resetBtn = document.getElementById("resetCounts");
 
-function createInput(value, type = "text", onChange) {
-  const input = document.createElement("input");
-  input.type = type;
-  input.value = value;
-  input.addEventListener("input", onChange); // Usando 'input' ao invés de 'change'
-  return input;
-}
-
-function createRow(key, data) {
+function createRow(id, data = {}) {
   const row = document.createElement("div");
   row.className = "row";
 
-  const produtoInput = createInput(data.produto, "text", (e) => updateValue(key, 'produto', e.target.value));
-  produtoInput.className = "wide";
-  const grupoInput = createInput(data.grupo, "text", (e) => updateValue(key, 'grupo', e.target.value));
-  grupoInput.className = "wide";
+  const produto = document.createElement("input");
+  produto.value = data.produto || "";
+  produto.oninput = () => save();
 
-  const estoqueInput = createInput(data.estoque || 0, "number", (e) => updateNumber(key));
-  const barInput = createInput(data.bar || 0, "number", (e) => updateNumber(key));
-  const avariasInput = createInput(data.avarias || 0, "number", (e) => updateNumber(key));
+  const grupo = document.createElement("input");
+  grupo.value = data.grupo || "";
+  grupo.oninput = () => save();
+
+  const estoque = document.createElement("input");
+  estoque.type = "number";
+  estoque.value = data.estoque || 0;
+  estoque.oninput = () => updateTotal(row);
+
+  const bar = document.createElement("input");
+  bar.type = "number";
+  bar.value = data.bar || 0;
+  bar.oninput = () => updateTotal(row);
+
+  const avarias = document.createElement("input");
+  avarias.type = "number";
+  avarias.value = data.avarias || 0;
+  avarias.oninput = () => updateTotal(row);
 
   const total = document.createElement("span");
-  total.className = "total";
-  total.innerText = Number(data.estoque || 0) + Number(data.bar || 0) + Number(data.avarias || 0);
+  total.textContent = calcularTotal(estoque.value, bar.value, avarias.value);
 
-  const deleteBtn = document.createElement("button");
-  deleteBtn.innerText = "Excluir";
-  deleteBtn.className = "delete-btn";
-  deleteBtn.addEventListener("click", () => remove(ref(db, `produtos/${key}`)));
+  const excluir = document.createElement("button");
+  excluir.textContent = "Excluir";
+  excluir.onclick = () => {
+    row.remove();
+    save();
+  };
 
-  row.append(produtoInput, grupoInput, estoqueInput, barInput, avariasInput, total, deleteBtn);
-  tabelaEl.appendChild(row);
+  row.append(produto, grupo, estoque, bar, avarias, total, excluir);
+  tabela.appendChild(row);
 }
 
-function updateValue(key, field, value) {
-  set(ref(db, `produtos/${key}/${field}`), value);
+function calcularTotal(e, b, a) {
+  return Number(e) + Number(b) + Number(a);
 }
 
-function updateNumber(key) {
-  const row = [...tabelaEl.children].find(r => r.querySelector(".delete-btn").onclick.toString().includes(key));
-  if (!row) return;
+function updateTotal(row) {
+  const inputs = row.querySelectorAll("input");
+  const totalSpan = row.querySelector("span");
+  const [produto, grupo, estoque, bar, avarias] = inputs;
+  totalSpan.textContent = calcularTotal(estoque.value, bar.value, avarias.value);
+  save();
+}
 
-  const [produtoInput, grupoInput, estoqueInput, barInput, avariasInput, totalEl] = row.children;
-  const estoque = Number(estoqueInput.value) || 0;
-  const bar = Number(barInput.value) || 0;
-  const avarias = Number(avariasInput.value) || 0;
-  const total = estoque + bar + avarias;
-  totalEl.innerText = total;
-
-  set(ref(db, `produtos/${key}`), {
-    produto: produtoInput.value,
-    grupo: grupoInput.value,
-    estoque,
-    bar,
-    avarias
+function save() {
+  const rows = Array.from(tabela.children).map(row => {
+    const inputs = row.querySelectorAll("input");
+    const total = row.querySelector("span").textContent;
+    return {
+      produto: inputs[0].value,
+      grupo: inputs[1].value,
+      estoque: inputs[2].value,
+      bar: inputs[3].value,
+      avarias: inputs[4].value,
+      total
+    };
   });
+
+  set(ref(db, "produtos"), rows);
 }
 
-function loadData() {
-  onValue(tabelaRef, (snapshot) => {
-    tabelaEl.innerHTML = "";
-    const data = snapshot.val();
-    if (data) {
-      Object.entries(data).forEach(([key, value]) => createRow(key, value));
-    }
+function resetContagem() {
+  Array.from(tabela.children).forEach(row => {
+    const inputs = row.querySelectorAll("input");
+    inputs[2].value = 0; // estoque
+    inputs[3].value = 0; // bar
+    inputs[4].value = 0; // avarias
+    updateTotal(row);
   });
+  save();
 }
 
-addRowBtn.addEventListener("click", () => {
-  const newRef = push(tabelaRef);
-  set(newRef, {
-    produto: "",
-    grupo: "",
-    estoque: 0,
-    bar: 0,
-    avarias: 0
-  });
+onValue(ref(db, "produtos"), (snapshot) => {
+  const data = snapshot.val();
+  if (data) {
+    tabela.innerHTML = "";
+    data.forEach((item, i) => createRow(i, item));
+  }
 });
 
-resetBtn.addEventListener("click", () => {
-  onValue(tabelaRef, (snapshot) => {
-    const data = snapshot.val();
-    if (!data) return;
-    Object.keys(data).forEach((key) => {
-      const item = data[key];
-      set(ref(db, `produtos/${key}`), {
-        ...item,
-        estoque: 0,
-        bar: 0,
-        avarias: 0
-      });
-    });
-  }, { onlyOnce: true });
-});
-
-loadData();
+addRowBtn.onclick = () => createRow(Date.now());
+resetBtn.onclick = resetContagem;
