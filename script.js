@@ -1,102 +1,101 @@
-import { db, ref, set, onValue, remove } from './firebase.js';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBMVXlYLkJ7CU-4_k75f8wFzMEzAr4g_2g",
+  authDomain: "contagemdeprodutos-62d48.firebaseapp.com",
+  databaseURL: "https://contagemdeprodutos-62d48-default-rtdb.firebaseio.com",
+  projectId: "contagemdeprodutos-62d48",
+  storageBucket: "contagemdeprodutos-62d48.appspot.com",
+  messagingSenderId: "203996681838",
+  appId: "1:203996681838:web:c1ef444145e7086998387f"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const dbRef = ref(db, "produtos");
 
 const tabela = document.getElementById("tabela");
 const addRowBtn = document.getElementById("addRow");
-const resetCountsBtn = document.getElementById("resetCounts");
-const dadosRef = ref(db, "produtos");
+const resetBtn = document.getElementById("resetCounts");
 
-function createRow(produto = "", grupo = "", estoque = "", bar = "", avarias = "", id = Date.now()) {
-  const row = document.createElement("div");
-  row.className = "row";
-
-  const produtoInput = createInput(produto, "produto");
-  const grupoInput = createInput(grupo, "grupo");
-  const estoqueInput = createInput(estoque, "estoque", true);
-  const barInput = createInput(bar, "bar", true);
-  const avariasInput = createInput(avarias, "avarias", true);
-  const totalSpan = document.createElement("span");
-  const deleteBtn = document.createElement("button");
-  deleteBtn.textContent = "🗑️";
-
-  function calcularTotal() {
-    const total = 
-      parseInt(estoqueInput.value) || 0 + 
-      parseInt(barInput.value) || 0 + 
-      parseInt(avariasInput.value) || 0;
-    totalSpan.textContent = total;
-  }
-
-  [produtoInput, grupoInput, estoqueInput, barInput, avariasInput].forEach(input =>
-    input.addEventListener("input", () => {
-      calcularTotal();
-      salvarDados();
-    })
-  );
-
-  deleteBtn.onclick = () => {
-    remove(ref(db, `produtos/${id}`));
-  };
-
-  calcularTotal();
-
-  row.append(produtoInput, grupoInput, estoqueInput, barInput, avariasInput, totalSpan, deleteBtn);
-  row.dataset.id = id;
-  return row;
-}
-
-function createInput(value = "", type = "", isNumber = false) {
+function criarInput(value = '', type = 'text', oninput = null) {
   const input = document.createElement("input");
+  input.type = type;
   input.value = value;
-  input.type = isNumber ? "number" : "text";
-  input.placeholder = type;
+  input.oninput = () => {
+    if (oninput) oninput();
+    salvarDados();
+  };
   return input;
 }
 
+function calcularTotal(row, estoqueInput, barInput, avariasInput) {
+  const total = parseInt(estoqueInput.value || 0) +
+                parseInt(barInput.value || 0) +
+                parseInt(avariasInput.value || 0);
+  row.querySelector(".total").textContent = total;
+}
+
+function criarLinha(dados = {}) {
+  const row = document.createElement("div");
+  row.className = "product-row";
+
+  const produtoInput = criarInput(dados.produto || '');
+  const grupoInput = criarInput(dados.grupo || '');
+  const estoqueInput = criarInput(dados.estoque || 0, 'number', () => calcularTotal(row, estoqueInput, barInput, avariasInput));
+  const barInput = criarInput(dados.bar || 0, 'number', () => calcularTotal(row, estoqueInput, barInput, avariasInput));
+  const avariasInput = criarInput(dados.avarias || 0, 'number', () => calcularTotal(row, estoqueInput, barInput, avariasInput));
+
+  const totalSpan = document.createElement("span");
+  totalSpan.className = "total";
+  totalSpan.textContent = dados.total || 0;
+
+  const delBtn = document.createElement("button");
+  delBtn.textContent = "Excluir";
+  delBtn.onclick = () => {
+    tabela.removeChild(row);
+    salvarDados();
+  };
+
+  row.append(produtoInput, grupoInput, estoqueInput, barInput, avariasInput, totalSpan, delBtn);
+  tabela.appendChild(row);
+
+  calcularTotal(row, estoqueInput, barInput, avariasInput);
+}
+
 function salvarDados() {
-  const rows = Array.from(document.querySelectorAll(".row"));
-  const data = {};
-  rows.forEach(row => {
-    const id = row.dataset.id;
+  const linhas = tabela.querySelectorAll(".product-row");
+  const dados = Array.from(linhas).map(row => {
     const inputs = row.querySelectorAll("input");
-    data[id] = {
+    return {
       produto: inputs[0].value,
       grupo: inputs[1].value,
-      estoque: inputs[2].value,
-      bar: inputs[3].value,
-      avarias: inputs[4].value
+      estoque: parseInt(inputs[2].value || 0),
+      bar: parseInt(inputs[3].value || 0),
+      avarias: parseInt(inputs[4].value || 0),
+      total: parseInt(row.querySelector(".total").textContent || 0)
     };
   });
-  set(dadosRef, data);
+  set(dbRef, dados);
 }
 
-function carregarDados() {
-  onValue(dadosRef, (snapshot) => {
-    tabela.innerHTML = "";
-    const data = snapshot.val();
-    if (data) {
-      Object.entries(data).forEach(([id, valores]) => {
-        const linha = createRow(valores.produto, valores.grupo, valores.estoque, valores.bar, valores.avarias, id);
-        tabela.appendChild(linha);
-      });
-    }
-  });
-}
+addRowBtn.onclick = () => criarLinha();
 
-addRowBtn.onclick = () => {
-  const novaLinha = createRow();
-  tabela.appendChild(novaLinha);
-  salvarDados();
-};
-
-resetCountsBtn.onclick = () => {
-  const rows = document.querySelectorAll(".row");
-  rows.forEach(row => {
+resetBtn.onclick = () => {
+  const linhas = tabela.querySelectorAll(".product-row");
+  linhas.forEach(row => {
     const inputs = row.querySelectorAll("input");
-    inputs[2].value = "";
-    inputs[3].value = "";
-    inputs[4].value = "";
+    inputs[2].value = 0;
+    inputs[3].value = 0;
+    inputs[4].value = 0;
+    row.querySelector(".total").textContent = 0;
   });
   salvarDados();
 };
 
-carregarDados();
+onValue(dbRef, snapshot => {
+  tabela.innerHTML = "";
+  const dados = snapshot.val() || [];
+  dados.forEach(produto => criarLinha(produto));
+});
