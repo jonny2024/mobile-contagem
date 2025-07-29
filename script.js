@@ -1,15 +1,22 @@
+// 🔁 Substitua pelos seus dados do Firebase:
+const firebaseConfig = {
+  apiKey: "AIzaSyBMVXlYLkJ7CU-4_k75f8wFzMEzAr4g_2g",
+  authDomain: "contagemdeprodutos-62d48.firebaseapp.com",
+  databaseURL: "https://contagemdeprodutos-62d48-default-rtdb.firebaseio.com",
+  projectId: "contagemdeprodutos-62d48",
+  storageBucket: "contagemdeprodutos-62d48.appspot.com",
+  messagingSenderId: "203996681838",
+  appId: "1:203996681838:web:c1ef444145e7086998387f"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
 const tabela = document.getElementById("tabela");
 const addRowBtn = document.getElementById("addRow");
 const resetBtn = document.getElementById("resetCounts");
 
-// Carrega do localStorage
-function carregarDados() {
-  const data = JSON.parse(localStorage.getItem("contagem")) || [];
-  data.forEach(addRow);
-}
-
-// Salva no localStorage
-function salvarDados() {
+function salvarFirebase() {
   const rows = Array.from(document.querySelectorAll(".row")).map(row => ({
     produto: row.querySelector(".produto").value,
     grupo: row.querySelector(".grupo").value,
@@ -17,7 +24,14 @@ function salvarDados() {
     bar: row.querySelector(".bar").value,
     avarias: row.querySelector(".avarias").value
   }));
-  localStorage.setItem("contagem", JSON.stringify(rows));
+  db.ref("contagem").set(rows);
+}
+
+function carregarFirebase() {
+  db.ref("contagem").once("value", snapshot => {
+    const data = snapshot.val() || [];
+    data.forEach(addRow);
+  });
 }
 
 function addRow(data = {}) {
@@ -43,7 +57,7 @@ function addRow(data = {}) {
     const avarias = parseInt(row.querySelector(".avarias").value) || 0;
     const total = estoque + bar + avarias;
     totalField.value = total;
-    salvarDados();
+    salvarFirebase();
   }
 
   inputs.forEach(input => {
@@ -52,12 +66,12 @@ function addRow(data = {}) {
 
   const textInputs = row.querySelectorAll("input[type='text']");
   textInputs.forEach(input => {
-    input.addEventListener("input", salvarDados);
+    input.addEventListener("input", salvarFirebase);
   });
 
   row.querySelector(".delete").addEventListener("click", () => {
     row.remove();
-    salvarDados();
+    salvarFirebase();
   });
 
   tabela.appendChild(row);
@@ -65,6 +79,7 @@ function addRow(data = {}) {
 }
 
 addRowBtn.addEventListener("click", () => addRow());
+
 resetBtn.addEventListener("click", () => {
   document.querySelectorAll(".estoque, .bar, .avarias").forEach(input => {
     input.value = 0;
@@ -73,7 +88,7 @@ resetBtn.addEventListener("click", () => {
     const totalField = row.querySelector(".total");
     totalField.value = 0;
   });
-  salvarDados();
+  salvarFirebase();
 });
 
-carregarDados();
+carregarFirebase();
