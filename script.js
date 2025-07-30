@@ -19,7 +19,6 @@ const resetBtn = document.getElementById("resetCounts");
 function salvarFirebase() {
   const rows = Array.from(document.querySelectorAll(".row")).map(row => ({
     produto: row.querySelector(".produto").value,
-    grupo: row.querySelector(".grupo").value,
     estoque: row.querySelector(".estoque").value,
     bar: row.querySelector(".bar").value,
     avarias: row.querySelector(".avarias").value
@@ -40,7 +39,6 @@ function addRow(data = {}) {
 
   row.innerHTML = `
     <input type="text" class="produto" placeholder="Produto" value="${data.produto || ''}">
-    <input type="text" class="grupo" placeholder="Grupo" value="${data.grupo || ''}">
     <input type="number" class="estoque" value="${data.estoque || 0}">
     <input type="number" class="bar" value="${data.bar || 0}">
     <input type="number" class="avarias" value="${data.avarias || 0}">
